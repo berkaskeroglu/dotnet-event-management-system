@@ -3,6 +3,7 @@ A robust and scalable Event Management System designed to handle seat reservatio
 
 
 Key Features 🚀
+
 Reservation System:
 Ensure smooth and conflict-free seat reservations with advanced seat-locking mechanisms to prevent double bookings.
 
