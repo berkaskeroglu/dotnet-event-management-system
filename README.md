@@ -4,7 +4,7 @@ still in development
 A robust and scalable Event Management System designed to handle seat reservations, dynamic pricing, and real-time updates using .NET 8.0 and PostgreSQL.
 
 
-Key Features 🚀
+Key Features 
 
 Reservation System:
 Ensure smooth and conflict-free seat reservations with advanced seat-locking mechanisms to prevent double bookings.
@@ -21,7 +21,7 @@ Utilize raw SQL queries for efficient database operations, avoiding the overhead
 Quartz.NET for Scheduling:
 Schedule automated price updates every 20 minutes to keep the pricing model consistent and transparent.
 
-Technology Stack 🛠️
+Technology Stack 
 
 Backend: .NET 8.0
 
