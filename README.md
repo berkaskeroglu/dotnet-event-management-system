@@ -22,9 +22,13 @@ Quartz.NET for Scheduling:
 Schedule automated price updates every 20 minutes to keep the pricing model consistent and transparent.
 
 Technology Stack 🛠️
+
 Backend: .NET 8.0
+
 Database: PostgreSQL
+
 Real-time Communication: SignalR
+
 Task Scheduling: Quartz.NET
-Dependency Injection: Built-in .NET Core DI framework
+
 API Design: RESTful services
