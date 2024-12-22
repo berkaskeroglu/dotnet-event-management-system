@@ -7,27 +7,28 @@ namespace EventManagementSystem.Repositories
 {
     public class UserRepository : IUserRepository
     {
-        private readonly string _connectionString;
-        private readonly DatabaseConnection _dbConnection;
+        private readonly DatabaseConnectionService _dbConnectionService;
+        private readonly QueuedDatabaseExecutor _executor;
 
-        public UserRepository(DatabaseConnection dbConnection)
+        public UserRepository(DatabaseConnectionService dbConnectionService, QueuedDatabaseExecutor executor)
         {
-            _dbConnection = dbConnection;
+            _dbConnectionService = dbConnectionService;
+            _executor = executor;
         }
 
         public async Task CreateAsync(User user)
         {
-            const string query = @"
-            INSERT INTO users 
-            (id, username, email, password_hash, password_salt, role_id, created_at, updated_at, name)
-            VALUES 
-            (@Id, @Username, @Email, @PasswordHash, @PasswordSalt, @RoleId, @CreatedAt, @UpdatedAt, @Name);";
-
-            using (var connection = _dbConnection.CreateConnection() as NpgsqlConnection)
+            await _executor.ExecuteAsync(async () =>
             {
-                await connection.OpenAsync();
+                const string query = @"
+                    INSERT INTO users 
+                    (id, username, email, password_hash, password_salt, role_id, created_at, updated_at, name)
+                    VALUES 
+                    (@Id, @Username, @Email, @PasswordHash, @PasswordSalt, @RoleId, @CreatedAt, @UpdatedAt, @Name);";
 
-                await using (var command = new NpgsqlCommand(query, connection))
+                var connection = _dbConnectionService.GetConnection();
+
+                using (var command = new NpgsqlCommand(query, connection))
                 {
                     command.Parameters.AddWithValue("@Id", user.Id);
                     command.Parameters.AddWithValue("@Username", user.Username);
@@ -41,18 +42,20 @@ namespace EventManagementSystem.Repositories
 
                     await command.ExecuteNonQueryAsync();
                 }
-            }
+            });
         }
+
 
         public async Task<IEnumerable<User>> GetAllAsync()
         {
-            const string query = @"SELECT * FROM users";
+            IEnumerable<User> users = null;
 
-            var users = new List<User>();
-
-            using (var connection = _dbConnection.CreateConnection() as NpgsqlConnection)
+            await _executor.ExecuteAsync(async () =>
             {
-                await connection.OpenAsync();
+                var connection = _dbConnectionService.GetConnection();
+                const string query = @"SELECT * FROM users";
+
+                var userList = new List<User>();
 
                 await using (var command = new NpgsqlCommand(query, connection))
                 {
@@ -60,7 +63,7 @@ namespace EventManagementSystem.Repositories
                     {
                         while (await reader.ReadAsync())
                         {
-                            users.Add(new User
+                            userList.Add(new User
                             {
                                 Id = reader.GetGuid(reader.GetOrdinal("id")),
                                 Username = reader.GetString(reader.GetOrdinal("username")),
@@ -74,20 +77,28 @@ namespace EventManagementSystem.Repositories
                         }
                     }
                 }
+
+                users = userList;
+            });
+
+            if (users == null)
+            {
+                throw new Exception("Failed to fetch users.");
             }
 
             return users;
         }
 
+
         public async Task<User> GetByEmailAsync(string email)
         {
-            const string query = @"SELECT * FROM users WHERE email = @Email;";
-
             User user = null;
 
-            using (var connection = _dbConnection.CreateConnection() as NpgsqlConnection)
+            await _executor.ExecuteAsync(async () =>
             {
-                await connection.OpenAsync();
+                var connection = _dbConnectionService.GetConnection();
+
+                const string query = @"SELECT * FROM users WHERE email = @Email;";
 
                 await using (var command = new NpgsqlCommand(query, connection))
                 {
@@ -111,26 +122,26 @@ namespace EventManagementSystem.Repositories
                         }
                     }
                 }
-            }
+            });
 
             return user;
         }
+
 
         public async Task<User> GetByIdAsync(int id)
         {
-            const string query = @"SELECT * FROM users WHERE id = @Id;";
-
             User user = null;
 
-            using (var connection = _dbConnection.CreateConnection() as NpgsqlConnection)
+            await _executor.ExecuteAsync(async () =>
             {
-                await connection.OpenAsync();
+                var connection = _dbConnectionService.GetConnection();
+                const string query = @"SELECT * FROM users WHERE id = @Id;";
 
-                await using (var command = new NpgsqlCommand(query, connection))
+                using (var command = new NpgsqlCommand(query, connection))
                 {
                     command.Parameters.AddWithValue("@Id", id);
 
-                    await using (var reader = await command.ExecuteReaderAsync())
+                    using (var reader = await command.ExecuteReaderAsync())
                     {
                         if (await reader.ReadAsync())
                         {
@@ -148,26 +159,32 @@ namespace EventManagementSystem.Repositories
                         }
                     }
                 }
+            });
+
+            if (user == null)
+            {
+                throw new Exception("User not found.");
             }
 
             return user;
         }
+
 
         public async Task<User> GetByUsernameAsync(string username)
         {
-            const string query = @"SELECT * FROM users WHERE username = @Username;";
-
             User user = null;
 
-            using (var connection = _dbConnection.CreateConnection() as NpgsqlConnection)
+            await _executor.ExecuteAsync(async () =>
             {
-                await connection.OpenAsync();
+                var connection = _dbConnectionService.GetConnection();
 
-                await using (var command = new NpgsqlCommand(query, connection))
+                const string query = @"SELECT * FROM users WHERE username = @Username;";
+
+                using (var command = new NpgsqlCommand(query, connection))
                 {
                     command.Parameters.AddWithValue("@Username", username);
 
-                    await using (var reader = await command.ExecuteReaderAsync())
+                    using (var reader = await command.ExecuteReaderAsync())
                     {
                         if (await reader.ReadAsync())
                         {
@@ -185,23 +202,24 @@ namespace EventManagementSystem.Repositories
                         }
                     }
                 }
-            }
+            });
 
             return user;
         }
 
+
         public async Task UpdateAsync(User user)
         {
-            const string query = @"
-                UPDATE users
-                SET username = @Username, email = @Email, updated_at = @UpdatedAt
-                WHERE id = @Id;";
-
-            using (var connection = _dbConnection.CreateConnection() as NpgsqlConnection)
+            await _executor.ExecuteAsync(async () =>
             {
-                await connection.OpenAsync();
+                var connection = _dbConnectionService.GetConnection();
 
-                await using (var command = new NpgsqlCommand(query, connection))
+                const string query = @"
+                        UPDATE users
+                        SET username = @Username, email = @Email, updated_at = @UpdatedAt
+                        WHERE id = @Id;";
+
+                using (var command = new NpgsqlCommand(query, connection))
                 {
                     command.Parameters.AddWithValue("@Id", user.Id);
                     command.Parameters.AddWithValue("@Username", user.Username);
@@ -210,24 +228,25 @@ namespace EventManagementSystem.Repositories
 
                     await command.ExecuteNonQueryAsync();
                 }
-            }
+            });
         }
+
 
         public async Task DeleteAsync(int id)
         {
-            const string query = @"DELETE FROM users WHERE id = @Id;";
-
-            using (var connection = _dbConnection.CreateConnection() as NpgsqlConnection)
+            await _executor.ExecuteAsync(async () =>
             {
-                await connection.OpenAsync();
+                var connection = _dbConnectionService.GetConnection();
 
-                await using (var command = new NpgsqlCommand(query, connection))
+                const string query = @"DELETE FROM users WHERE id = @Id;";
+
+                using (var command = new NpgsqlCommand(query, connection))
                 {
                     command.Parameters.AddWithValue("@Id", id);
 
                     await command.ExecuteNonQueryAsync();
                 }
-            }
+            });
         }
     }
 

@@ -7,11 +7,13 @@ namespace EventManagementSystem.Repositories
 {
     public class RoleRepository : IRoleRepository
     {
-        private readonly DatabaseConnection _dbConnection;
+        private readonly DatabaseConnectionService _dbConnectionService;
+        private readonly QueuedDatabaseExecutor _executor;
 
-        public RoleRepository(DatabaseConnection dbConnection)
+        public RoleRepository(DatabaseConnectionService dbConnectionService, QueuedDatabaseExecutor executor)
         {
-            _dbConnection = dbConnection;
+            _dbConnectionService = dbConnectionService;
+            _executor = executor;
         }
 
         public async Task<IEnumerable<Role>> GetAllAsync()
@@ -19,12 +21,12 @@ namespace EventManagementSystem.Repositories
             const string query = "SELECT * FROM roles";
             var roles = new List<Role>();
 
-            using (var connection = _dbConnection.CreateConnection() as NpgsqlConnection)
+            await _executor.ExecuteAsync(async () =>
             {
-                await connection.OpenAsync();
+                var connection = _dbConnectionService.GetConnection();
 
-                await using (var command = new NpgsqlCommand(query, connection))
-                await using (var reader = await command.ExecuteReaderAsync())
+                using (var command = new NpgsqlCommand(query, connection))
+                using (var reader = await command.ExecuteReaderAsync())
                 {
                     while (await reader.ReadAsync())
                     {
@@ -35,28 +37,31 @@ namespace EventManagementSystem.Repositories
                         });
                     }
                 }
-            }
+            });
 
             return roles;
         }
 
+
         public async Task<Role> GetByIdAsync(int id)
         {
-            const string query = "SELECT * FROM roles WHERE id = @Id";
+            Role role = null;
 
-            using (var connection = _dbConnection.CreateConnection() as NpgsqlConnection)
+            await _executor.ExecuteAsync(async () =>
             {
-                await connection.OpenAsync();
+                var connection = _dbConnectionService.GetConnection();
 
-                await using (var command = new NpgsqlCommand(query, connection))
+                const string query = "SELECT * FROM roles WHERE id = @Id";
+
+                using (var command = new NpgsqlCommand(query, connection))
                 {
                     command.Parameters.AddWithValue("@Id", id);
 
-                    await using (var reader = await command.ExecuteReaderAsync())
+                    using (var reader = await command.ExecuteReaderAsync())
                     {
                         if (await reader.ReadAsync())
                         {
-                            return new Role
+                            role = new Role
                             {
                                 Id = reader.GetInt32(reader.GetOrdinal("id")),
                                 Name = reader.GetString(reader.GetOrdinal("name"))
@@ -64,21 +69,22 @@ namespace EventManagementSystem.Repositories
                         }
                     }
                 }
-            }
+            });
 
-            return null;
+            return role;
         }
+
 
         public async Task<Role> CreateAsync(Role role)
         {
-            const string query = @"
-                INSERT INTO roles (name)
-                VALUES (@Name)
-                RETURNING id;";
-
-            using (var connection = _dbConnection.CreateConnection() as NpgsqlConnection)
+            await _executor.ExecuteAsync(async () =>
             {
-                await connection.OpenAsync();
+                var connection = _dbConnectionService.GetConnection();
+
+                const string query = @"
+                        INSERT INTO roles (name)
+                        VALUES (@Name)
+                        RETURNING id;";
 
                 using (var command = new NpgsqlCommand(query, connection))
                 {
@@ -86,44 +92,47 @@ namespace EventManagementSystem.Repositories
 
                     role.Id = (int)await command.ExecuteScalarAsync();
                 }
-            }
+            });
 
             return role;
         }
 
+
         public async Task UpdateAsync(Role role)
         {
-            const string query = "UPDATE roles SET name = @Name WHERE id = @Id";
-
-            using (var connection = _dbConnection.CreateConnection() as NpgsqlConnection)
+            await _executor.ExecuteAsync(async () =>
             {
-                await connection.OpenAsync();
+                var connection = _dbConnectionService.GetConnection();
 
-                await using (var command = new NpgsqlCommand(query, connection))
+                const string query = "UPDATE roles SET name = @Name WHERE id = @Id";
+
+                using (var command = new NpgsqlCommand(query, connection))
                 {
                     command.Parameters.AddWithValue("@Id", role.Id);
                     command.Parameters.AddWithValue("@Name", role.Name);
 
                     await command.ExecuteNonQueryAsync();
                 }
-            }
+            });
         }
+
 
         public async Task DeleteAsync(int id)
         {
-            const string query = "DELETE FROM roles WHERE id = @Id";
-
-            using (var connection = _dbConnection.CreateConnection() as NpgsqlConnection)
+            await _executor.ExecuteAsync(async () =>
             {
-                await connection.OpenAsync();
+                var connection = _dbConnectionService.GetConnection();
 
-                await using (var command = new NpgsqlCommand(query, connection))
+                const string query = "DELETE FROM roles WHERE id = @Id";
+
+                using (var command = new NpgsqlCommand(query, connection))
                 {
                     command.Parameters.AddWithValue("@Id", id);
 
                     await command.ExecuteNonQueryAsync();
                 }
-            }
+            });
         }
+
     }
 }

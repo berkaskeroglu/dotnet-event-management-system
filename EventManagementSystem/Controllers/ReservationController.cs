@@ -1,62 +1,100 @@
-﻿using EventManagementSystem.Services;
-using Microsoft.AspNetCore.Mvc;
-using EventManagementSystem.Dto;
+﻿using Microsoft.AspNetCore.Mvc;
+using EventManagementSystem.Services;
+using EventManagementSystem.Models;
+using System.Collections.Generic;
+using System.Threading.Tasks;
 
-[ApiController]
-[Route("api/[controller]")]
-public class ReservationController : ControllerBase
+namespace EventManagementSystem.Controllers
 {
-    private readonly IReservationService _reservationService;
-
-    public ReservationController(IReservationService reservationService)
+    [Route("api/[controller]")]
+    [ApiController]
+    public class ReservationController : ControllerBase
     {
-        _reservationService = reservationService;
-    }
+        private readonly IReservationService _reservationService;
 
-    // POST: api/Reservation/reserve
-    [HttpPost("reserve")]
-    public async Task<IActionResult> ReserveSeat([FromBody] ReserveSeatRequest request)
-    {
-        if (!ModelState.IsValid)
-            return BadRequest(ModelState);
+        public ReservationController(IReservationService reservationService)
+        {
+            _reservationService = reservationService;
+        }
 
-        var result = await _reservationService.ReserveSeatAsync(request.SeatId, request.UserId);
-        if (result)
-            return Ok("Seat reserved successfully.");
+        // GET: api/reservations
+        [HttpGet]
+        public async Task<ActionResult<List<Reservation>>> GetAllReservations()
+        {
+            var reservations = await _reservationService.GetAllReservationsAsync();
+            if (reservations == null || reservations.Count == 0)
+            {
+                return NotFound("No reservations found.");
+            }
+            return Ok(reservations);
+        }
 
-        return BadRequest("Failed to reserve the seat. It may already be reserved.");
-    }
+        // GET: api/reservations/{id}
+        [HttpGet("{id}")]
+        public async Task<ActionResult<Reservation>> GetReservationById(int id)
+        {
+            var reservation = await _reservationService.GetReservationByIdAsync(id);
+            if (reservation == null)
+            {
+                return NotFound($"Reservation with ID {id} not found.");
+            }
+            return Ok(reservation);
+        }
 
-    // POST: api/Reservation/cancel
-    [HttpPost("cancel")]
-    public async Task<IActionResult> CancelReservation([FromBody] CancelReservationRequest request)
-    {
-        if (!ModelState.IsValid)
-            return BadRequest(ModelState);
+        // POST: api/reservations
+        [HttpPost]
+        public async Task<ActionResult<Reservation>> CreateReservation([FromBody] Reservation reservation)
+        {
+            if (reservation == null)
+            {
+                return BadRequest("Reservation data is invalid.");
+            }
 
-        var result = await _reservationService.CancelReservationAsync(request.SeatId, request.UserId);
-        if (result)
-            return Ok("Reservation canceled successfully.");
+            var result = await _reservationService.CreateReservationAsync(reservation);
+            if (result)
+            {
+                return CreatedAtAction(nameof(GetReservationById), new { id = reservation.Id }, reservation);
+            }
 
-        return BadRequest("Failed to cancel the reservation. Ensure the seat is reserved by the user.");
-    }
+            return BadRequest("Failed to create reservation.");
+        }
 
-    // GET: api/Reservation/availability/{seatId}
-    [HttpGet("availability/{seatId}")]
-    public async Task<IActionResult> CheckSeatAvailability(int seatId)
-    {
-        var isAvailable = await _reservationService.CheckSeatAvailabilityAsync(seatId);
-        return Ok(new { SeatId = seatId, IsAvailable = isAvailable });
-    }
+        // PUT: api/reservations
+        [HttpPut]
+        public async Task<ActionResult> UpdateReservation([FromBody] Reservation reservation)
+        {
+            if (reservation == null)
+            {
+                return BadRequest("Reservation data is invalid.");
+            }
 
-    // POST: api/Reservation/update-status
-    [HttpPost("update-status")]
-    public async Task<IActionResult> UpdateSeatStatus([FromBody] UpdateSeatStatusRequest request)
-    {
-        if (!ModelState.IsValid)
-            return BadRequest(ModelState);
+            await _reservationService.UpdateReservationAsync(reservation);
+            return NoContent();
+        }
 
-        await _reservationService.UpdateSeatStatusAsync(request.SeatId, request.IsReserved);
-        return Ok("Seat status updated successfully.");
+        // GET: api/reservations/event/{eventId}
+        [HttpGet("event/{eventId}")]
+        public async Task<ActionResult<List<Reservation>>> GetReservationsByEvent(int eventId)
+        {
+            var reservations = await _reservationService.GetReservationsByEventAsync(eventId);
+            if (reservations == null || reservations.Count == 0)
+            {
+                return NotFound($"No reservations found for event with ID {eventId}.");
+            }
+            return Ok(reservations);
+        }
+
+        // DELETE: api/reservations/{id}
+        [HttpDelete("{id}")]
+        public async Task<ActionResult> CancelReservation(int id)
+        {
+            var result = await _reservationService.CancelReservationAsync(id);
+            if (result)
+            {
+                return NoContent();
+            }
+
+            return NotFound($"Reservation with ID {id} not found or could not be canceled.");
+        }
     }
 }

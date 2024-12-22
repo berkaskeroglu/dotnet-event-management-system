@@ -8,21 +8,24 @@ namespace EventManagementSystem.Repositories
 {
     public class ReservationRepository : IReservationRepository
     {
-        private readonly DatabaseConnection _dbConnection;
+        private readonly DatabaseConnectionService _dbConnectionService;
+        private readonly QueuedDatabaseExecutor _executor;
         private readonly IHubContext<ReservationHub> _hubContext;
 
-        public ReservationRepository(DatabaseConnection dbConnection, IHubContext<ReservationHub> hubContext)
+        public ReservationRepository(DatabaseConnectionService dbConnectionService, QueuedDatabaseExecutor executor, IHubContext<ReservationHub> hubContext)
         {
-            _dbConnection = dbConnection;
+            _dbConnectionService = dbConnectionService;
+            _executor = executor;
             _hubContext = hubContext;
         }
 
         public async Task<List<Reservation>> GetAllReservationsAsync()
         {
-            var reservations = new List<Reservation>();
-            using (var connection = _dbConnection.CreateConnection() as NpgsqlConnection)
+            List<Reservation> reservations = new List<Reservation>();
+
+            await _executor.ExecuteAsync(async () =>
             {
-                await connection.OpenAsync();
+                var connection = _dbConnectionService.GetConnection();
 
                 var query = "SELECT * FROM Reservations";
 
@@ -45,26 +48,28 @@ namespace EventManagementSystem.Repositories
                         reservations.Add(reservation);
                     }
                 }
-            }
+            });
+
             return reservations;
         }
+
 
 
         public async Task<Reservation> GetReservationByIdAsync(int id)
         {
             Reservation reservation = null;
 
-            using (var connection = _dbConnection.CreateConnection() as NpgsqlConnection)
+            await _executor.ExecuteAsync(async () =>
             {
-                await connection.OpenAsync();
+                var connection = _dbConnectionService.GetConnection();
 
-                var query = "SELECT Id, UserId, EventId, SeatId, ReservationDate FROM Reservations WHERE Id = @Id";
+                var query = "SELECT Id, UserId, EventId, SeatId, ReservationDate, Price, ReservedUntil, Status FROM Reservations WHERE Id = @Id";
 
-                using (var command = new NpgsqlCommand(query, connection))
+                using (var cmd = new NpgsqlCommand(query, connection))
                 {
-                    command.Parameters.AddWithValue("@Id", id);
+                    cmd.Parameters.AddWithValue("@Id", id);
 
-                    using (var reader = await command.ExecuteReaderAsync())
+                    using (var reader = await cmd.ExecuteReaderAsync())
                     {
                         if (await reader.ReadAsync())
                         {
@@ -75,26 +80,30 @@ namespace EventManagementSystem.Repositories
                                 EventId = reader.GetInt32(reader.GetOrdinal("EventId")),
                                 Price = reader.GetInt32(reader.GetOrdinal("Price")),
                                 SeatId = reader.GetInt32(reader.GetOrdinal("SeatId")),
-                                CreatedAt = reader.GetDateTime(reader.GetOrdinal("CreatedAt")),
-                                ReservedUntil = reader.GetDateTime(reader.GetOrdinal("ReservedUntil")),
+                                CreatedAt = reader.GetDateTime(reader.GetOrdinal("ReservationDate")),
+                                ReservedUntil = reader.IsDBNull(reader.GetOrdinal("ReservedUntil")) ? (DateTime?)null : reader.GetDateTime(reader.GetOrdinal("ReservedUntil")),
                                 Status = (ReservationStatus)reader.GetInt32(reader.GetOrdinal("Status"))
                             };
                         }
                     }
                 }
-            }
+            });
 
             return reservation;
         }
 
 
-        public async Task CreateReservationAsync(Reservation reservation)
-        {
-            using (var connection = _dbConnection.CreateConnection() as NpgsqlConnection)
-            {
-                await connection.OpenAsync();
 
-                var query = "INSERT INTO Reservations (UserId, EventId, SeatId, Price, Status, ReservedUntil, CreatedAt) VALUES (@UserId, @EventId, @SeatId, @Price, @Status, @ReservedUntil, @CreatedAt)";
+        public async Task<bool> CreateReservationAsync(Reservation reservation)
+        {
+            var result = false;
+
+            await _executor.ExecuteAsync(async () =>
+            {
+                var connection = _dbConnectionService.GetConnection();
+
+                var query = "INSERT INTO Reservations (UserId, EventId, SeatId, Price, Status, ReservedUntil, CreatedAt) " +
+                            "VALUES (@UserId, @EventId, @SeatId, @Price, @Status, @ReservedUntil, @CreatedAt)";
 
                 using (var cmd = new NpgsqlCommand(query, connection))
                 {
@@ -102,129 +111,135 @@ namespace EventManagementSystem.Repositories
                     cmd.Parameters.AddWithValue("@EventId", reservation.EventId);
                     cmd.Parameters.AddWithValue("@SeatId", reservation.SeatId);
                     cmd.Parameters.AddWithValue("@Price", reservation.Price);
-                    cmd.Parameters.AddWithValue("@Status", reservation.Status); //???????????
-                    cmd.Parameters.AddWithValue("@ReservedUntil", reservation.ReservedUntil); //???????????
+                    cmd.Parameters.AddWithValue("@Status", reservation.Status);
+                    cmd.Parameters.AddWithValue("@ReservedUntil", reservation.ReservedUntil);
                     cmd.Parameters.AddWithValue("@CreatedAt", reservation.CreatedAt);
 
-                    await cmd.ExecuteNonQueryAsync();
+                    var rowsAffected = await cmd.ExecuteNonQueryAsync();
+                    result = rowsAffected > 0;
                 }
-            }
+            });
+
+            return result;
         }
+
+
+
 
 
         public async Task UpdateReservationAsync(Reservation reservation)
         {
-            using (var connection = _dbConnection.CreateConnection() as NpgsqlConnection)
+            await _executor.ExecuteAsync(async () =>
             {
-                await connection.OpenAsync();
+                var connection = _dbConnectionService.GetConnection();
+
                 var query = "UPDATE Reservations SET UserId = @UserId, EventId = @EventId, SeatId = @SeatId, Price = @Price, ReservedUntil = @ReservedUntil, UpdatedAt = @UpdatedAt WHERE Id = @Id";
 
                 using (var cmd = new NpgsqlCommand(query, connection))
                 {
-                    // Parametreleri ekleyelim
                     cmd.Parameters.AddWithValue("UserId", reservation.UserId);
                     cmd.Parameters.AddWithValue("EventId", reservation.EventId);
                     cmd.Parameters.AddWithValue("SeatId", reservation.SeatId);
-                    cmd.Parameters.AddWithValue("@Price", reservation.Price);
-                    cmd.Parameters.AddWithValue("@ReservedUntil", reservation.ReservedUntil);
+                    cmd.Parameters.AddWithValue("Price", reservation.Price);
+                    cmd.Parameters.AddWithValue("ReservedUntil", reservation.ReservedUntil);
                     cmd.Parameters.AddWithValue("UpdatedAt", reservation.UpdatedAt);
                     cmd.Parameters.AddWithValue("Id", reservation.Id);
 
                     await cmd.ExecuteNonQueryAsync();
                 }
-            }
+            });
         }
 
 
-        public async Task DeleteReservationAsync(int id)
+
+        public async Task<bool> DeleteReservationAsync(int reservationId)
         {
-            using (var connection = _dbConnection.CreateConnection() as NpgsqlConnection)
+            var result = false;
+
+            await _executor.ExecuteAsync(async () =>
             {
-                await connection.OpenAsync();
+                var connection = _dbConnectionService.GetConnection();
                 var query = "DELETE FROM Reservations WHERE Id = @Id";
 
                 using (var command = new NpgsqlCommand(query, connection))
                 {
-                    command.Parameters.AddWithValue("@Id", id);
-                    await command.ExecuteNonQueryAsync();
+                    command.Parameters.AddWithValue("@Id", reservationId);
+                    var affectedRows = await command.ExecuteNonQueryAsync();
+                    result = affectedRows > 0; 
                 }
-            }
+            });
+
+            return result;
         }
 
-        public async Task<bool> IsSeatAvailableAsync(int seatId)
+
+
+        public async Task<int?> GetSeatIdByReservationIdAsync(int reservationId)
         {
-            bool isAvailable = false;
-            using (var connection = _dbConnection.CreateConnection() as NpgsqlConnection)
+            int? seatId = null;
+
+            await _executor.ExecuteAsync(async () =>
             {
-                await connection.OpenAsync();
-                var query = "SELECT IsReserved, ReservedUntil FROM Seats WHERE Id = @SeatId";
+                var connection = _dbConnectionService.GetConnection();
+                var query = "SELECT SeatId FROM Reservations WHERE Id = @ReservationId";
 
                 using (var command = new NpgsqlCommand(query, connection))
                 {
-                    command.Parameters.AddWithValue("SeatId", seatId);
+                    command.Parameters.AddWithValue("@ReservationId", reservationId);
 
                     using (var reader = await command.ExecuteReaderAsync())
                     {
                         if (await reader.ReadAsync())
                         {
-                            var isReserved = reader.GetBoolean(reader.GetOrdinal("IsReserved"));
-                            var reservedUntil = reader.IsDBNull(reader.GetOrdinal("ReservedUntil")) ? (DateTime?)null : reader.GetDateTime(reader.GetOrdinal("ReservedUntil"));
-
-                            if (!isReserved || (reservedUntil.HasValue && reservedUntil.Value < DateTime.UtcNow))
-                            {
-                                isAvailable = true;
-                            }
+                            seatId = reader.GetInt32(reader.GetOrdinal("SeatId"));
                         }
                     }
                 }
-            }
-            return isAvailable;
+            });
+
+            return seatId;
         }
 
-
-        public async Task ReserveSeatForTemporaryPeriodAsync(int seatId, int durationInSeconds)
+        public async Task<List<Reservation>> GetReservationsByEventAsync(int eventId)
         {
-            using (var connection = _dbConnection.CreateConnection() as NpgsqlConnection)
+            var reservations = new List<Reservation>();
+
+            await _executor.ExecuteAsync(async () =>
             {
-                await connection.OpenAsync();
-                var query = @"
-                        UPDATE Seats
-                        SET IsReserved = TRUE, ReservedUntil = CURRENT_TIMESTAMP + INTERVAL @DurationInSeconds SECOND
-                        WHERE Id = @SeatId AND (IsReserved = FALSE OR ReservedUntil < CURRENT_TIMESTAMP)";
+                var connection = _dbConnectionService.GetConnection();
+                var query = "SELECT * FROM Reservations WHERE EventId = @EventId";
 
                 using (var command = new NpgsqlCommand(query, connection))
                 {
-                    command.Parameters.AddWithValue("@SeatId", seatId);
-                    command.Parameters.AddWithValue("@DurationInSeconds", durationInSeconds);
+                    command.Parameters.AddWithValue("@EventId", eventId);
 
-                    var affectedRows = await command.ExecuteNonQueryAsync();
-
-                    if (affectedRows == 0)
+                    using (var reader = await command.ExecuteReaderAsync())
                     {
-                        throw new InvalidOperationException("The seat is already reserved or unavailable.");
+                        while (await reader.ReadAsync())
+                        {
+                            var reservation = new Reservation
+                            {
+                                Id = reader.GetInt32(reader.GetOrdinal("Id")),
+                                UserId = reader.GetGuid(reader.GetOrdinal("UserId")),
+                                EventId = reader.GetInt32(reader.GetOrdinal("EventId")),
+                                SeatId = reader.GetInt32(reader.GetOrdinal("SeatId")),
+                                Category = reader.GetInt32(reader.GetOrdinal("Category")),
+                                StartDate = reader.GetDateTime(reader.GetOrdinal("StartDate")),
+                                EndDate = reader.GetDateTime(reader.GetOrdinal("EndDate")),
+                                Price = reader.GetDecimal(reader.GetOrdinal("Price")),
+                                Status = (ReservationStatus)reader.GetInt32(reader.GetOrdinal("Status")),
+                                CreatedAt = reader.GetDateTime(reader.GetOrdinal("CreatedAt")),
+                                UpdatedAt = reader.GetDateTime(reader.GetOrdinal("UpdatedAt"))
+                            };
+                            reservations.Add(reservation);
+                        }
                     }
                 }
-            }
-            await _hubContext.Clients.All.SendAsync("ReceiveSeatUpdate", seatId, true);
+            });
+
+            return reservations;
         }
 
-
-        public async Task CancelTemporaryReservationAsync(int seatId)
-        {
-            using (var connection = _dbConnection.CreateConnection() as NpgsqlConnection)
-            {
-                await connection.OpenAsync();
-
-                var query = "UPDATE Seats SET IsReserved = FALSE, ReservedUntil = NULL WHERE Id = @SeatId";
-
-                using (var command = new NpgsqlCommand(query, connection))
-                {
-                    command.Parameters.AddWithValue("SeatId", seatId);
-
-                    await command.ExecuteNonQueryAsync();
-                }
-            }
-        }
 
 
 

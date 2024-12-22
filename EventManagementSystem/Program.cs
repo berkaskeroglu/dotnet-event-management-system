@@ -15,10 +15,9 @@ using Quartz;
 var builder = WebApplication.CreateBuilder(args);
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
 
+builder.Services.AddSingleton<QueuedDatabaseExecutor>();
+
 builder.Services.AddSignalR();
-builder.Services.AddSingleton(new DatabaseConnection(connectionString));
-builder.Services.AddTransient<IDbConnection>(sp =>
-    sp.GetRequiredService<DatabaseConnection>().CreateConnection());
 
 builder.Services.AddQuartz(q =>
 {
@@ -39,6 +38,9 @@ builder.Services.AddScoped<IUserService, UserService>();
 builder.Services.AddScoped<IRoleRepository, RoleRepository>();
 builder.Services.AddScoped<IRoleService, RoleService>();
 
+builder.Services.AddScoped<ISeatRepository, SeatRepository>();
+builder.Services.AddScoped<ISeatService, SeatService>();
+
 builder.Services.AddScoped<IPriceRepository, PriceRepository>();
 builder.Services.AddScoped<IPriceService, PriceService>();
 
@@ -55,13 +57,14 @@ builder.Services.AddSwaggerGen();
 
 var app = builder.Build();
 
-app.MapHub<ReservationHub>("/reservationHub");
+
 
 // Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
     app.UseSwaggerUI();
+    app.UseHsts();
 }
 
 app.UseHttpsRedirection();
@@ -69,5 +72,6 @@ app.UseHttpsRedirection();
 app.UseAuthorization();
 
 app.MapControllers();
+app.MapHub<ReservationHub>("/reservationHub");
 
 app.Run();

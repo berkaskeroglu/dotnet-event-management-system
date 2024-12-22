@@ -6,11 +6,11 @@ namespace EventManagementSystem.Repositories
     {
         Task<List<Reservation>> GetAllReservationsAsync();
         Task<Reservation> GetReservationByIdAsync(int id);
-        Task CreateReservationAsync(Reservation reservation);
+        Task<bool> CreateReservationAsync(Reservation reservation);
         Task UpdateReservationAsync(Reservation reservation);
-        Task DeleteReservationAsync(int id);
-        Task<bool> IsSeatAvailableAsync(int seatId);
-        Task ReserveSeatForTemporaryPeriodAsync(int seatId, int durationInSeconds);
+        Task<List<Reservation>> GetReservationsByEventAsync(int eventId);
+        Task<int?> GetSeatIdByReservationIdAsync(int reservationId);
+        Task<bool> DeleteReservationAsync(int id);
     }
 
 }

@@ -33,3 +33,16 @@ D:\source\repos\EventManagementSystem\EventManagementSystem\obj\Debug\net8.0\ref
 D:\source\repos\EventManagementSystem\EventManagementSystem\obj\Debug\net8.0\EventManagementSystem.pdb
 D:\source\repos\EventManagementSystem\EventManagementSystem\obj\Debug\net8.0\EventManagementSystem.genruntimeconfig.cache
 D:\source\repos\EventManagementSystem\EventManagementSystem\obj\Debug\net8.0\ref\EventManagementSystem.dll
+D:\source\repos\EventManagementSystem\EventManagementSystem\bin\Debug\net8.0\Microsoft.AspNetCore.Connections.Abstractions.dll
+D:\source\repos\EventManagementSystem\EventManagementSystem\bin\Debug\net8.0\Microsoft.AspNetCore.SignalR.Common.dll
+D:\source\repos\EventManagementSystem\EventManagementSystem\bin\Debug\net8.0\Microsoft.Bcl.AsyncInterfaces.dll
+D:\source\repos\EventManagementSystem\EventManagementSystem\bin\Debug\net8.0\Microsoft.Extensions.Features.dll
+D:\source\repos\EventManagementSystem\EventManagementSystem\bin\Debug\net8.0\Microsoft.Extensions.Options.dll
+D:\source\repos\EventManagementSystem\EventManagementSystem\bin\Debug\net8.0\Microsoft.Extensions.Primitives.dll
+D:\source\repos\EventManagementSystem\EventManagementSystem\bin\Debug\net8.0\Quartz.dll
+D:\source\repos\EventManagementSystem\EventManagementSystem\bin\Debug\net8.0\Quartz.Extensions.DependencyInjection.dll
+D:\source\repos\EventManagementSystem\EventManagementSystem\bin\Debug\net8.0\Quartz.Extensions.Hosting.dll
+D:\source\repos\EventManagementSystem\EventManagementSystem\bin\Debug\net8.0\System.IO.Pipelines.dll
+D:\source\repos\EventManagementSystem\EventManagementSystem\bin\Debug\net8.0\System.Text.Encodings.Web.dll
+D:\source\repos\EventManagementSystem\EventManagementSystem\bin\Debug\net8.0\System.Text.Json.dll
+D:\source\repos\EventManagementSystem\EventManagementSystem\bin\Debug\net8.0\runtimes\browser\lib\net8.0\System.Text.Encodings.Web.dll

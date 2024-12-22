@@ -3,18 +3,23 @@ using Npgsql;
 
 namespace EventManagementSystem.Data
 {
-    public class DatabaseConnection
+    public class DatabaseConnectionService
     {
-        private readonly string _connectionString;
+        private readonly NpgsqlConnection _connection;
 
-        public DatabaseConnection(string connectionString)
+        public DatabaseConnectionService(string connectionString)
         {
-            _connectionString = connectionString;
+            _connection = new NpgsqlConnection(connectionString);
         }
 
-        public IDbConnection CreateConnection()
+        public NpgsqlConnection GetConnection()
         {
-            return new NpgsqlConnection(_connectionString);
+            if (_connection.State == System.Data.ConnectionState.Closed)
+            {
+                _connection.Open();
+            }
+
+            return _connection;
         }
     }
 }

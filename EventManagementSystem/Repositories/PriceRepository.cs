@@ -7,48 +7,48 @@ namespace EventManagementSystem.Repositories
 {
     public class PriceRepository : IPriceRepository
     {
-        private readonly DatabaseConnection _dbConnection;
-
-        public PriceRepository(DatabaseConnection dbConnection)
+        private readonly DatabaseConnectionService _dbConnectionService;
+        private readonly QueuedDatabaseExecutor _executor;
+        public PriceRepository(DatabaseConnectionService dbConnectionService, QueuedDatabaseExecutor executor)
         {
-            _dbConnection = dbConnection;
+            _dbConnectionService = dbConnectionService;
+            _executor = executor;
         }
 
         public async Task<List<Price>> GetAllPricesAsync()
         {
             var prices = new List<Price>();
 
-            using (var connection = _dbConnection.CreateConnection() as NpgsqlConnection)
+            await _executor.ExecuteAsync(async () =>
             {
-                await connection.OpenAsync();
-
-                var query = "SELECT EventId, Category, Price FROM Prices";
-
-                using (var cmd = new NpgsqlCommand(query, connection))
+                var connection = _dbConnectionService.GetConnection();
+                var query = "SELECT * FROM Prices";
+                using (var command = new NpgsqlCommand(query, connection))
+                using (var reader = await command.ExecuteReaderAsync())
                 {
-                    using (var reader = await cmd.ExecuteReaderAsync())
+                    while (await reader.ReadAsync())
                     {
-                        while (await reader.ReadAsync())
+                        prices.Add(new Price
                         {
-                            prices.Add(new Price
-                            {
-                                EventId = reader.GetInt32(reader.GetOrdinal("EventId")),
-                                Category = reader.GetInt32(reader.GetOrdinal("Category")),
-                                Value = reader.GetDecimal(reader.GetOrdinal("Price"))
-                            });
-                        }
+                            EventId = reader.GetInt32(0),
+                            Category = reader.GetInt32(1),
+                            Value = reader.GetDecimal(2)
+                        });
                     }
                 }
-            }
+            });
+
 
             return prices;
         }
 
         public async Task<Price> AddPrice(int eventId, int category)
         {
-            using (var connection = _dbConnection.CreateConnection() as NpgsqlConnection)
+            Price addedPrice = null;
+
+            await _executor.ExecuteAsync(async () =>
             {
-                await connection.OpenAsync();
+                var connection = _dbConnectionService.GetConnection();
 
                 var query = "INSERT INTO Prices (EventId, Category, Price) VALUES (@EventId, @Category, 0.0) RETURNING EventId, Category, Price";
 
@@ -61,7 +61,7 @@ namespace EventManagementSystem.Repositories
                     {
                         if (await reader.ReadAsync())
                         {
-                            return new Price
+                            addedPrice = new Price
                             {
                                 EventId = reader.GetInt32(reader.GetOrdinal("EventId")),
                                 Category = reader.GetInt32(reader.GetOrdinal("Category")),
@@ -70,18 +70,24 @@ namespace EventManagementSystem.Repositories
                         }
                     }
                 }
+            });
+
+            if (addedPrice == null)
+            {
+                throw new Exception("Failed to add price.");
             }
 
-            throw new Exception("Failed to add price.");
+            return addedPrice;
         }
+
 
         public async Task<List<Price>> GetPriceByEventAsync(int eventId)
         {
             var prices = new List<Price>();
 
-            using (var connection = _dbConnection.CreateConnection() as NpgsqlConnection)
+            await _executor.ExecuteAsync(async () =>
             {
-                await connection.OpenAsync();
+                var connection = _dbConnectionService.GetConnection();
 
                 var query = "SELECT EventId, Category, Price FROM Prices WHERE EventId = @EventId";
 
@@ -102,16 +108,19 @@ namespace EventManagementSystem.Repositories
                         }
                     }
                 }
-            }
+            });
 
             return prices;
         }
 
+
         public async Task<Price> GetPriceByEventAndCategoryAsync(int eventId, int category)
         {
-            using (var connection = _dbConnection.CreateConnection() as NpgsqlConnection)
+            Price price = null;
+
+            await _executor.ExecuteAsync(async () =>
             {
-                await connection.OpenAsync();
+                var connection = _dbConnectionService.GetConnection();
 
                 var query = "SELECT EventId, Category, Price FROM Prices WHERE EventId = @EventId AND Category = @Category";
 
@@ -124,7 +133,7 @@ namespace EventManagementSystem.Repositories
                     {
                         if (await reader.ReadAsync())
                         {
-                            return new Price
+                            price = new Price
                             {
                                 EventId = reader.GetInt32(reader.GetOrdinal("EventId")),
                                 Category = reader.GetInt32(reader.GetOrdinal("Category")),
@@ -133,16 +142,22 @@ namespace EventManagementSystem.Repositories
                         }
                     }
                 }
+            });
+
+            if (price == null)
+            {
+                throw new KeyNotFoundException("Price not found for the specified EventId and Category.");
             }
 
-            throw new KeyNotFoundException("Price not found for the specified EventId and Category.");
+            return price;
         }
+
 
         public async Task UpdatePriceAsync(int eventId, int category, decimal newPrice)
         {
-            using (var connection = _dbConnection.CreateConnection() as NpgsqlConnection)
+            await _executor.ExecuteAsync(async () =>
             {
-                await connection.OpenAsync();
+                var connection = _dbConnectionService.GetConnection();
 
                 var query = "UPDATE Prices SET Price = @NewPrice WHERE EventId = @EventId AND Category = @Category";
 
@@ -154,8 +169,9 @@ namespace EventManagementSystem.Repositories
 
                     await cmd.ExecuteNonQueryAsync();
                 }
-            }
+            });
         }
+
     }
 
 }
