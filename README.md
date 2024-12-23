@@ -1,6 +1,8 @@
 still in development
 
-Next task: Complete the reservation system and refactor the connection handling architecture. Instead of opening a new connection for each action, establish and maintain major connections upfront to minimize repeated opening and closing of connections. This approach will also help reduce latency.
+Next task: Utilizing SignalR + handling issues
+
+Previous tasks: Complete the reservation system and refactor the connection handling architecture. Instead of opening a new connection for each action, establish and maintain major connections upfront to minimize repeated opening and closing of connections. This approach will also help reduce latency. [DONE]
 
 # dotnet-event-management-system
 A robust and scalable Event Management System designed to handle seat reservations, dynamic pricing, and real-time updates using .NET 8.0 and PostgreSQL.
