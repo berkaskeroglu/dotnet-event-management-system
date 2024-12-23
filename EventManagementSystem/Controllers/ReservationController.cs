@@ -3,6 +3,8 @@ using EventManagementSystem.Services;
 using EventManagementSystem.Models;
 using System.Collections.Generic;
 using System.Threading.Tasks;
+using Microsoft.Extensions.Logging;
+using Quartz.Logging;
 
 namespace EventManagementSystem.Controllers
 {
@@ -11,10 +13,13 @@ namespace EventManagementSystem.Controllers
     public class ReservationController : ControllerBase
     {
         private readonly IReservationService _reservationService;
+        private readonly ILogger<ReservationController> _logger;
 
-        public ReservationController(IReservationService reservationService)
+        public ReservationController(IReservationService reservationService, ILogger<ReservationController> logger)
         {
             _reservationService = reservationService;
+            _logger = logger;
+
         }
 
         // GET: api/reservations
@@ -50,13 +55,24 @@ namespace EventManagementSystem.Controllers
                 return BadRequest("Reservation data is invalid.");
             }
 
-            var result = await _reservationService.CreateReservationAsync(reservation);
-            if (result)
+            //var result = await _reservationService.CreateReservationAsync(reservation);
+            //if (result)
+            //{
+            //    return CreatedAtAction(nameof(GetReservationById), new { id = reservation.Id }, reservation);
+            //}
+
+            //return BadRequest("Failed to create reservation.");
+            try
             {
-                return CreatedAtAction(nameof(GetReservationById), new { id = reservation.Id }, reservation);
+                var result = await _reservationService.CreateReservationAsync(reservation);
+                return Ok(result);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error occurred while creating reservation");
+                return StatusCode(500, new { message = ex.Message });
             }
 
-            return BadRequest("Failed to create reservation.");
         }
 
         // PUT: api/reservations

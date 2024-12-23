@@ -27,7 +27,7 @@ namespace EventManagementSystem.Repositories
             {
                 var connection = _dbConnectionService.GetConnection();
 
-                var query = "SELECT * FROM Reservations";
+                var query = "SELECT * FROM reservations";
 
                 using (var command = new NpgsqlCommand(query, connection))
                 using (var reader = await command.ExecuteReaderAsync())
@@ -36,14 +36,16 @@ namespace EventManagementSystem.Repositories
                     {
                         var reservation = new Reservation
                         {
-                            Id = reader.GetInt32(reader.GetOrdinal("Id")),
-                            UserId = reader.GetGuid(reader.GetOrdinal("UserId")),
-                            EventId = reader.GetInt32(reader.GetOrdinal("EventId")),
-                            Price = reader.GetInt32(reader.GetOrdinal("Price")),
-                            SeatId = reader.GetInt32(reader.GetOrdinal("SeatId")),
-                            CreatedAt = reader.GetDateTime(reader.GetOrdinal("CreatedAt")),
-                            ReservedUntil = reader.GetDateTime(reader.GetOrdinal("ReservedUntil")),
-                            Status = (ReservationStatus)reader.GetInt32(reader.GetOrdinal("Status"))
+                            Id = reader.GetInt32(reader.GetOrdinal("id")),
+                            UserId = reader.GetGuid(reader.GetOrdinal("user_id")),
+                            EventId = reader.GetInt32(reader.GetOrdinal("event_id")),
+                            Price = reader.GetInt32(reader.GetOrdinal("price")),
+                            SeatId = reader.GetInt32(reader.GetOrdinal("seat_id")),
+                            StartDate = reader.GetDateTime(reader.GetOrdinal("start_date")),
+                            EndDate = reader.GetDateTime(reader.GetOrdinal("end_date")),
+                            CreatedAt = reader.GetDateTime(reader.GetOrdinal("created_at")),
+                            Status = reader.GetInt32(reader.GetOrdinal("status")),
+                            UpdatedAt = reader.GetDateTime(reader.GetOrdinal("updated_at")),
                         };
                         reservations.Add(reservation);
                     }
@@ -63,7 +65,7 @@ namespace EventManagementSystem.Repositories
             {
                 var connection = _dbConnectionService.GetConnection();
 
-                var query = "SELECT Id, UserId, EventId, SeatId, ReservationDate, Price, ReservedUntil, Status FROM Reservations WHERE Id = @Id";
+                var query = "SELECT id, user_id, event_id, seat_id, start_date, end_date, price, status, created_at, updated_at FROM reservations WHERE Id = @Id";
 
                 using (var cmd = new NpgsqlCommand(query, connection))
                 {
@@ -75,14 +77,16 @@ namespace EventManagementSystem.Repositories
                         {
                             reservation = new Reservation
                             {
-                                Id = reader.GetInt32(reader.GetOrdinal("Id")),
-                                UserId = reader.GetGuid(reader.GetOrdinal("UserId")),
-                                EventId = reader.GetInt32(reader.GetOrdinal("EventId")),
-                                Price = reader.GetInt32(reader.GetOrdinal("Price")),
-                                SeatId = reader.GetInt32(reader.GetOrdinal("SeatId")),
-                                CreatedAt = reader.GetDateTime(reader.GetOrdinal("ReservationDate")),
-                                ReservedUntil = reader.IsDBNull(reader.GetOrdinal("ReservedUntil")) ? (DateTime?)null : reader.GetDateTime(reader.GetOrdinal("ReservedUntil")),
-                                Status = (ReservationStatus)reader.GetInt32(reader.GetOrdinal("Status"))
+                                Id = reader.GetInt32(reader.GetOrdinal("id")),
+                                UserId = reader.GetGuid(reader.GetOrdinal("user_id")),
+                                EventId = reader.GetInt32(reader.GetOrdinal("event_id")),
+                                Price = reader.GetInt32(reader.GetOrdinal("price")),
+                                SeatId = reader.GetInt32(reader.GetOrdinal("seat_id")),
+                                StartDate = reader.GetDateTime(reader.GetOrdinal("start_date")),
+                                EndDate = reader.GetDateTime(reader.GetOrdinal("end_date")),
+                                CreatedAt = reader.GetDateTime(reader.GetOrdinal("created_at")),
+                                Status = reader.GetInt32(reader.GetOrdinal("status")),
+                                UpdatedAt = reader.GetDateTime(reader.GetOrdinal("updated_at")),
                             };
                         }
                     }
@@ -102,8 +106,8 @@ namespace EventManagementSystem.Repositories
             {
                 var connection = _dbConnectionService.GetConnection();
 
-                var query = "INSERT INTO Reservations (UserId, EventId, SeatId, Price, Status, ReservedUntil, CreatedAt) " +
-                            "VALUES (@UserId, @EventId, @SeatId, @Price, @Status, @ReservedUntil, @CreatedAt)";
+                var query = "INSERT INTO reservations (user_id, event_id, seat_id, start_date, end_date, price, status, category, created_at) " +
+                            "VALUES (@UserId, @EventId, @SeatId, @StartDate, @EndDate, @Price, @Status, @Category, @CreatedAt)";
 
                 using (var cmd = new NpgsqlCommand(query, connection))
                 {
@@ -111,9 +115,12 @@ namespace EventManagementSystem.Repositories
                     cmd.Parameters.AddWithValue("@EventId", reservation.EventId);
                     cmd.Parameters.AddWithValue("@SeatId", reservation.SeatId);
                     cmd.Parameters.AddWithValue("@Price", reservation.Price);
+                    cmd.Parameters.AddWithValue("@StartDate", reservation.StartDate);
+                    cmd.Parameters.AddWithValue("@EndDate", reservation.EndDate);
                     cmd.Parameters.AddWithValue("@Status", reservation.Status);
-                    cmd.Parameters.AddWithValue("@ReservedUntil", reservation.ReservedUntil);
+                    cmd.Parameters.AddWithValue("@Category", reservation.Category);
                     cmd.Parameters.AddWithValue("@CreatedAt", reservation.CreatedAt);
+
 
                     var rowsAffected = await cmd.ExecuteNonQueryAsync();
                     result = rowsAffected > 0;
@@ -133,17 +140,20 @@ namespace EventManagementSystem.Repositories
             {
                 var connection = _dbConnectionService.GetConnection();
 
-                var query = "UPDATE Reservations SET UserId = @UserId, EventId = @EventId, SeatId = @SeatId, Price = @Price, ReservedUntil = @ReservedUntil, UpdatedAt = @UpdatedAt WHERE Id = @Id";
+                var query = "UPDATE reservations SET user_id = @UserId, event_id = @EventId, seat_id = @SeatId, price = @Price, start_date = @StartDate, end_date = @EndDate, status = @Status, category = @Category, updated_at = @UpdatedAt WHERE Id = @Id";
 
                 using (var cmd = new NpgsqlCommand(query, connection))
                 {
-                    cmd.Parameters.AddWithValue("UserId", reservation.UserId);
-                    cmd.Parameters.AddWithValue("EventId", reservation.EventId);
-                    cmd.Parameters.AddWithValue("SeatId", reservation.SeatId);
-                    cmd.Parameters.AddWithValue("Price", reservation.Price);
-                    cmd.Parameters.AddWithValue("ReservedUntil", reservation.ReservedUntil);
-                    cmd.Parameters.AddWithValue("UpdatedAt", reservation.UpdatedAt);
-                    cmd.Parameters.AddWithValue("Id", reservation.Id);
+                    cmd.Parameters.AddWithValue("@UserId", reservation.UserId);
+                    cmd.Parameters.AddWithValue("@EventId", reservation.EventId);
+                    cmd.Parameters.AddWithValue("@SeatId", reservation.SeatId);
+                    cmd.Parameters.AddWithValue("@Price", reservation.Price);
+                    cmd.Parameters.AddWithValue("@StartDate", reservation.StartDate);
+                    cmd.Parameters.AddWithValue("@EndDate", reservation.EndDate);
+                    cmd.Parameters.AddWithValue("@Status", reservation.Status);
+                    cmd.Parameters.AddWithValue("@Category", reservation.Category);
+                    cmd.Parameters.AddWithValue("@UpdatedAt", reservation.UpdatedAt);
+                    cmd.Parameters.AddWithValue("@Id", reservation.Id);
 
                     await cmd.ExecuteNonQueryAsync();
                 }
@@ -159,7 +169,7 @@ namespace EventManagementSystem.Repositories
             await _executor.ExecuteAsync(async () =>
             {
                 var connection = _dbConnectionService.GetConnection();
-                var query = "DELETE FROM Reservations WHERE Id = @Id";
+                var query = "DELETE FROM reservations WHERE Id = @Id";
 
                 using (var command = new NpgsqlCommand(query, connection))
                 {
@@ -181,7 +191,7 @@ namespace EventManagementSystem.Repositories
             await _executor.ExecuteAsync(async () =>
             {
                 var connection = _dbConnectionService.GetConnection();
-                var query = "SELECT SeatId FROM Reservations WHERE Id = @ReservationId";
+                var query = "SELECT seat_id FROM reservations WHERE Id = @ReservationId";
 
                 using (var command = new NpgsqlCommand(query, connection))
                 {
@@ -191,7 +201,7 @@ namespace EventManagementSystem.Repositories
                     {
                         if (await reader.ReadAsync())
                         {
-                            seatId = reader.GetInt32(reader.GetOrdinal("SeatId"));
+                            seatId = reader.GetInt32(reader.GetOrdinal("seat_id"));
                         }
                     }
                 }
@@ -207,7 +217,7 @@ namespace EventManagementSystem.Repositories
             await _executor.ExecuteAsync(async () =>
             {
                 var connection = _dbConnectionService.GetConnection();
-                var query = "SELECT * FROM Reservations WHERE EventId = @EventId";
+                var query = "SELECT * FROM reservations WHERE event_id = @EventId";
 
                 using (var command = new NpgsqlCommand(query, connection))
                 {
@@ -219,17 +229,16 @@ namespace EventManagementSystem.Repositories
                         {
                             var reservation = new Reservation
                             {
-                                Id = reader.GetInt32(reader.GetOrdinal("Id")),
-                                UserId = reader.GetGuid(reader.GetOrdinal("UserId")),
-                                EventId = reader.GetInt32(reader.GetOrdinal("EventId")),
-                                SeatId = reader.GetInt32(reader.GetOrdinal("SeatId")),
-                                Category = reader.GetInt32(reader.GetOrdinal("Category")),
-                                StartDate = reader.GetDateTime(reader.GetOrdinal("StartDate")),
-                                EndDate = reader.GetDateTime(reader.GetOrdinal("EndDate")),
-                                Price = reader.GetDecimal(reader.GetOrdinal("Price")),
-                                Status = (ReservationStatus)reader.GetInt32(reader.GetOrdinal("Status")),
-                                CreatedAt = reader.GetDateTime(reader.GetOrdinal("CreatedAt")),
-                                UpdatedAt = reader.GetDateTime(reader.GetOrdinal("UpdatedAt"))
+                                Id = reader.GetInt32(reader.GetOrdinal("id")),
+                                UserId = reader.GetGuid(reader.GetOrdinal("user_id")),
+                                EventId = reader.GetInt32(reader.GetOrdinal("event_id")),
+                                Price = reader.GetInt32(reader.GetOrdinal("price")),
+                                SeatId = reader.GetInt32(reader.GetOrdinal("seat_id")),
+                                StartDate = reader.GetDateTime(reader.GetOrdinal("start_date")),
+                                EndDate = reader.GetDateTime(reader.GetOrdinal("end_date")),
+                                CreatedAt = reader.GetDateTime(reader.GetOrdinal("created_at")),
+                                Status = reader.GetInt32(reader.GetOrdinal("status")),
+                                UpdatedAt = reader.GetDateTime(reader.GetOrdinal("updated_at")),
                             };
                             reservations.Add(reservation);
                         }

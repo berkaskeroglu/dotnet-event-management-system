@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Data;
+using System.Runtime.InteropServices;
 using System.Threading.Tasks;
 using EventManagementSystem.Data;
 using EventManagementSystem.Models;
@@ -21,7 +22,7 @@ namespace EventManagementSystem.Repositories
         public async Task<Seat> GetSeatAsync(int seatId)
         {
             Seat seat = null;
-            var query = "SELECT * FROM Seats WHERE Id = @SeatId";
+            var query = "SELECT id, event_id, is_reserved, created_at, updated_at, reserved_until, category FROM seats WHERE id = @SeatId";
 
             await _executor.ExecuteAsync(async () =>
             {
@@ -35,13 +36,13 @@ namespace EventManagementSystem.Repositories
                         {
                             seat = new Seat
                             {
-                                Id = reader.GetInt32(reader.GetOrdinal("Id")),
-                                EventId = reader.GetInt32(reader.GetOrdinal("EventId")),
-                                IsReserved = reader.GetBoolean(reader.GetOrdinal("IsReserved")),
-                                CreatedAt = reader.GetDateTime(reader.GetOrdinal("CreatedAt")),
-                                UpdatedAt = reader.GetDateTime(reader.GetOrdinal("UpdatedAt")),
-                                ReservedUntil = reader.GetDateTime(reader.GetOrdinal("ReservedUntil")),
-                                Category = reader.GetInt32(reader.GetOrdinal("Category"))
+                                Id = reader.GetInt32(reader.GetOrdinal("id")),
+                                EventId = reader.GetInt32(reader.GetOrdinal("event_id")),
+                                IsReserved = reader.GetBoolean(reader.GetOrdinal("is_reserved")),
+                                CreatedAt = reader.GetDateTime(reader.GetOrdinal("created_at")),
+                                UpdatedAt = reader.GetDateTime(reader.GetOrdinal("updated_at")),
+                                ReservedUntil = reader.GetDateTime(reader.GetOrdinal("reserved_until")),
+                                Category = reader.GetInt32(reader.GetOrdinal("category"))
                             };
                         }
                     }
@@ -54,17 +55,29 @@ namespace EventManagementSystem.Repositories
 
         public async Task<bool> CheckSeatAvailabilityAsync(int seatId)
         {
-            var query = "SELECT IsReserved FROM Seats WHERE Id = @SeatId";
+            var query = "SELECT id, is_reserved, reserved_until FROM seats WHERE id = @SeatId";
             bool isAvailable = false;
 
             await _executor.ExecuteAsync(async () =>
             {
-                var connection =  _dbConnectionService.GetConnection(); 
+                var connection = _dbConnectionService.GetConnection();
                 using (var cmd = new NpgsqlCommand(query, connection))
                 {
                     cmd.Parameters.AddWithValue("@SeatId", seatId);
-                    var result = await cmd.ExecuteScalarAsync();
-                    isAvailable = result != DBNull.Value && !(bool)result;
+                    using (var reader = await cmd.ExecuteReaderAsync())
+                    {
+                        if (await reader.ReadAsync())
+                        {
+                            int id = reader.GetInt32(reader.GetOrdinal("id"));
+                            bool isReserved = reader.GetBoolean(reader.GetOrdinal("is_reserved"));
+                            DateTime reservedUntil = reader.GetDateTime(reader.GetOrdinal("reserved_until"));
+
+                            if (!isReserved || DateTime.Now > reservedUntil)
+                            {
+                                isAvailable = true;
+                            }
+                        }
+                    }
                 }
             });
 
@@ -72,9 +85,10 @@ namespace EventManagementSystem.Repositories
         }
 
 
+
         public async Task UpdateSeatStatusAsync(int seatId, bool isReserved, DateTime reservedUntil)
         {
-            var query = "UPDATE Seats SET IsReserved = @IsReserved, ReservedUntil = @ReservedUntil, UpdatedAt = @UpdatedAt WHERE Id = @SeatId";
+            var query = "UPDATE seats SET is_reserved = @IsReserved, reserved_until = @ReservedUntil, updated_at = @UpdatedAt WHERE id = @SeatId";
 
             await _executor.ExecuteAsync(async () =>
             {
@@ -94,12 +108,12 @@ namespace EventManagementSystem.Repositories
 
         public async Task CreateSeatAsync(Seat seat)
         {
-            var query = "INSERT INTO Seats (EventId, IsReserved, CreatedAt, UpdatedAt, ReservedUntil, Category) " +
+            var query = "INSERT INTO seats (event_id, is_reserved, created_at, updated_at, reserved_until, category) " +
                         "VALUES (@EventId, @IsReserved, @CreatedAt, @UpdatedAt, @ReservedUntil, @Category)";
 
             await _executor.ExecuteAsync(async () =>
             {
-                var connection = _dbConnectionService.GetConnection(); // Halihazırda açılmış bağlantıyı alıyoruz.
+                var connection = _dbConnectionService.GetConnection();
                 using (var cmd = new NpgsqlCommand(query, connection))
                 {
                     cmd.Parameters.AddWithValue("@EventId", seat.EventId);
@@ -121,7 +135,7 @@ namespace EventManagementSystem.Repositories
             await _executor.ExecuteAsync(async () =>
             {
                 var connection = _dbConnectionService.GetConnection();
-                var query = "SELECT * FROM Seats WHERE EventId = @EventId";
+                var query = "SELECT * FROM seats WHERE event_id = @EventId";
 
                 using (var cmd = new NpgsqlCommand(query, connection))
                 {
@@ -133,20 +147,20 @@ namespace EventManagementSystem.Repositories
                         {
                             seats.Add(new Seat
                             {
-                                Id = reader.GetInt32(reader.GetOrdinal("Id")),
-                                EventId = reader.GetInt32(reader.GetOrdinal("EventId")),
-                                IsReserved = reader.GetBoolean(reader.GetOrdinal("IsReserved")),
-                                CreatedAt = reader.GetDateTime(reader.GetOrdinal("CreatedAt")),
-                                UpdatedAt = reader.GetDateTime(reader.GetOrdinal("UpdatedAt")),
-                                ReservedUntil = reader.GetDateTime(reader.GetOrdinal("ReservedUntil")),
-                                Category = reader.GetInt32(reader.GetOrdinal("Category"))
+                                Id = reader.GetInt32(reader.GetOrdinal("id")),
+                                EventId = reader.GetInt32(reader.GetOrdinal("event_id")),
+                                IsReserved = reader.GetBoolean(reader.GetOrdinal("is_reserved")),
+                                CreatedAt = reader.GetDateTime(reader.GetOrdinal("created_at")),
+                                UpdatedAt = reader.GetDateTime(reader.GetOrdinal("updated_at")),
+                                ReservedUntil = reader.GetDateTime(reader.GetOrdinal("reserved_until")),
+                                Category = reader.GetInt32(reader.GetOrdinal("category"))
                             });
                         }
                     }
                 }
             });
 
-            return seats;  // Koltukları döndürüyoruz.
+            return seats; 
         }
 
     }

@@ -30,8 +30,8 @@ builder.Services.AddSingleton(new JobSchedule(
     jobType: typeof(DynamicPricingJob),
     cronExpression: "0 */20 * * * ?"));
 
-builder.Services.AddSingleton<IHubContext<ReservationHub>>();
-
+//builder.Services.AddSingleton<IHubContext<ReservationHub>>();
+builder.Services.AddSingleton(new DatabaseConnectionService(connectionString)); 
 builder.Services.AddScoped<IUserRepository, UserRepository>();
 builder.Services.AddScoped<IUserService, UserService>();
 

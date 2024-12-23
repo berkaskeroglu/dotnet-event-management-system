@@ -74,7 +74,7 @@ namespace EventManagementSystem.Controllers
         }
 
         // GET: api/seats/check/{seatId}
-        [HttpGet("check/{seatId}")]
+        [HttpGet("checkAvailability/{seatId}")]
         public async Task<ActionResult<bool>> CheckSeatAvailability(int seatId)
         {
             var isAvailable = await _seatService.CheckSeatAvailabilityAsync(seatId);
@@ -82,3 +82,6 @@ namespace EventManagementSystem.Controllers
         }
     }
 }
+
+
+// UPDATE SEAT GELECEK. EKSİK.

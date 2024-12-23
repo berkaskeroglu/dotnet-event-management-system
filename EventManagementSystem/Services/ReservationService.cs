@@ -25,7 +25,9 @@ namespace EventManagementSystem.Services
             var result = await _reservationRepository.CreateReservationAsync(reservation);
             if (result)
             {
-                await _seatRepository.UpdateSeatStatusAsync(reservation.SeatId, true, reservation.EndDate);
+                DateTime reservedUntil = DateTime.UtcNow.AddYears(10); // burasi degisecek events table utilize ettigimde
+
+                await _seatRepository.UpdateSeatStatusAsync(reservation.SeatId, true, /*reservation.EndDate*/ reservedUntil);
             }
             return result;
         }
